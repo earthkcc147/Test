@@ -78,6 +78,7 @@ def place_order(category, product_key, quantity, link):
     print(f"จำนวนที่เลือก: {quantity} ชิ้น")
     print(f"ราคาต่อหน่วย: {product['price_per_unit']} บาท")
     print(f"ราคาทั้งหมด: {total_price} บาท")
+    print(f"ลิงก์ที่กรอก: {link}")  # แสดงลิงก์ที่ผู้ใช้กรอก
     
     # การยืนยันการสั่งซื้อ
     confirm = input("คุณต้องการยืนยันการสั่งซื้อหรือไม่? (y/n): ").lower()
