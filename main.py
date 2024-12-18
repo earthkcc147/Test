@@ -178,7 +178,3 @@ while True:
         choose_product("discord")
     else:
         print("ตัวเลือกไม่ถูกต้อง ❌")
-
-
-
-แสดงราคาด้วย
