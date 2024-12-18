@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 # โหลดค่าจากไฟล์ .env
 load_dotenv()
 
+BALANCE_MULTIPLIER = float(os.getenv("BALANCE_MULTIPLIER", 100))
+
 # อ่านค่าจาก .env
 API_URL = os.getenv("API_URL")
 USERS_JSON = os.getenv("USERS")
