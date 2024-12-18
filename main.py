@@ -63,7 +63,7 @@ def place_order(category, product_key, quantity, link):
         print(f"จำนวนสินค้าต้องอยู่ระหว่าง {min_quantity} ถึง {max_quantity} ชิ้น ❌")
         return
 
-    total_price = product['price_per_unit'] * quantity
+    total_price = round(product['price_per_unit'] * quantity, 2)
 
     balance = get_balance(api_key)
     if balance is None:
@@ -81,10 +81,10 @@ def place_order(category, product_key, quantity, link):
     print(f"\n--- รายละเอียดการสั่งซื้อ ---")
     print(f"สินค้า: {product['description']}")
     print(f"จำนวนที่เลือก: {quantity} ชิ้น")
-    print(f"ราคาต่อหน่วย: {product['price_per_unit']} บาท")
-    print(f"ราคาทั้งหมด: {total_price} บาท")
-    print(f"ลิงก์ที่กรอก: {link}")  # แสดงลิงก์ที่ผู้ใช้กรอก
-    print(f"ยอดเงินที่คุณมีหลังจากคูณ: {adjusted_balance} บาท 💳")  # แสดงยอดเงินที่คูณ
+    print(f"ราคาต่อหน่วย: {product['price_per_unit']:.2f} บาท")
+    print(f"ราคาทั้งหมด: {total_price:.2f} บาท")
+    print(f"ลิงก์ที่กรอก: {link}")
+    print(f"ยอดเงินที่คุณมีหลังจากคูณ: {adjusted_balance:.2f} บาท 💳")
 
     # การยืนยันการสั่งซื้อ
     confirm = input("คุณต้องการยืนยันการสั่งซื้อหรือไม่? (y/n): ").lower()
@@ -95,10 +95,10 @@ def place_order(category, product_key, quantity, link):
     # ข้อมูลการสั่งซื้อที่ต้องการส่งไปยัง API
     data_order = {
         "key": api_key,
-        "action": "add",  # ชื่อ action สำหรับการเพิ่มคำสั่งซื้อ
-        "service": product['service'],  # รหัสบริการที่เกี่ยวข้อง
-        "link": link,  # link ที่ผู้ใช้กรอก
-        "quantity": quantity  # จำนวนที่สั่งซื้อ
+        "action": "add",
+        "service": product['service'],
+        "link": link,
+        "quantity": quantity
     }
 
     try:
@@ -106,11 +106,10 @@ def place_order(category, product_key, quantity, link):
         if response_order.status_code == 200:
             order_data = response_order.json()
             if 'order' in order_data:
-                remaining_balance = round(adjusted_balance - total_price, 2)  # คำนวณยอดเงินที่เหลือ
+                remaining_balance = round(adjusted_balance - total_price, 2)
                 print(f"การสั่งซื้อสำเร็จ! คำสั่งซื้อ ID: {order_data['order']} ✅")
-                print(f"รวมราคาทั้งหมด: {total_price} บาท 💵")
-                print(f"ลิงก์ที่คุณกรอก: {link}")  # แสดงลิงก์ในการยืนยันการสั่งซื้อ
-                print(f"ยอดเงินที่เหลือหลังจากการสั่งซื้อ: {remaining_balance} บาท 💳")  # แสดงยอดเงินที่เหลือ
+                print(f"รวมราคาทั้งหมด: {total_price:.2f} บาท 💵")
+                print(f"ยอดเงินที่เหลือหลังจากการสั่งซื้อ: {remaining_balance:.2f} บาท 💳")
             else:
                 print("การสั่งซื้อไม่สำเร็จ ❌")
         else:
@@ -127,8 +126,7 @@ def choose_product(category):
     category_products = products[category]
     print("\n--- รายการสินค้า ---")
     for index, (product_name, details) in enumerate(category_products.items(), start=1):
-        print(f"{index}. {details['description']} - ราคาต่อหน่วย: {details['price_per_unit']} บาท")
-        # แสดง min_quantity และ max_quantity สำหรับแต่ละสินค้า
+        print(f"{index}. {details['description']} - ราคาต่อหน่วย: {details['price_per_unit']:.2f} บาท")
         print(f"   จำนวนขั้นต่ำ: {details['min_quantity']} - จำนวนสูงสุด: {details['max_quantity']}")
 
     print("0. ย้อนกลับ 🔙")
@@ -142,17 +140,13 @@ def choose_product(category):
         product = category_products[product_key]
         print(f"คุณเลือก {product['description']}")
 
-        # แสดง min_quantity, max_quantity และราคาต่อหน่วยก่อนให้ผู้ใช้กรอกจำนวน
         min_quantity = product['min_quantity']
         max_quantity = product['max_quantity']
         price_per_unit = product['price_per_unit']
         print(f"จำนวนขั้นต่ำ: {min_quantity}, จำนวนสูงสุด: {max_quantity}")
-        print(f"ราคาต่อหน่วย: {price_per_unit} บาท")
+        print(f"ราคาต่อหน่วย: {price_per_unit:.2f} บาท")
 
-        # รับค่า link จากผู้ใช้
         link = input("กรุณากรอกลิงก์ที่ต้องการ: ")
-
-        # สั่งซื้อ
         quantity = int(input(f"กรุณากรอกจำนวนที่ต้องการซื้อ (ระหว่าง {min_quantity} และ {max_quantity}): "))
         place_order(category, product_key, quantity, link)
 
@@ -160,10 +154,8 @@ def choose_product(category):
 def show_category_menu():
     balance = get_balance(api_key)
     if balance is not None:
-        # print(f"\n--- เมนูหลัก --- ยอดเงิน: {balance} บาท 💳")
-        # คูณยอดเงินด้วยตัวคูณ
-        adjusted_balance = round(balance * BALANCE_MULTIPLIER, 100)
-        print(f"\n--- เมนูหลัก --- ยอดเงิน: {adjusted_balance} บาท 💳")
+        adjusted_balance = round(balance * BALANCE_MULTIPLIER, 2)
+        print(f"\n--- เมนูหลัก --- ยอดเงิน: {adjusted_balance:.2f} บาท 💳")
     else:
         print("\n--- เมนูหลัก --- ไม่สามารถดึงยอดเงินได้ ❗")
     
@@ -191,4 +183,3 @@ while True:
         choose_product("discord")
     else:
         print("ตัวเลือกไม่ถูกต้อง ❌")
-
