@@ -64,7 +64,6 @@ def place_order(category, product_key, quantity, link):
         return
 
     total_price = product['price_per_unit'] * quantity
-    remaining_balance = adjusted_balance - total_price
 
     balance = get_balance(api_key)
     if balance is None:
@@ -73,6 +72,7 @@ def place_order(category, product_key, quantity, link):
 
     # คูณยอดเงินด้วยตัวคูณ
     adjusted_balance = round(balance * BALANCE_MULTIPLIER, 2)
+    remaining_balance = adjusted_balance - total_price
 
     if total_price > adjusted_balance:
         print(f"ยอดเงินไม่เพียงพอในการซื้อสินค้า {product['description']} ❌")
