@@ -9,7 +9,7 @@ load_dotenv()
 # อ่านค่าจาก .env
 API_URL = os.getenv("API_URL")
 USERS_JSON = os.getenv("USERS")
-BALANCE_FILE = "balance.json"  # ไฟล์ที่เก็บยอดเงิน
+BALANCE_FILE = "balance.json"  # เพิ่มชื่อไฟล์ balance.json
 
 # แปลงข้อมูล USERS_JSON เป็น dictionary
 try:
@@ -19,16 +19,12 @@ except json.JSONDecodeError:
     exit()
 
 # อ่านข้อมูลยอดเงินจาก balance.json
-def load_balance():
-    if os.path.exists(BALANCE_FILE):
-        with open(BALANCE_FILE, "r") as f:
-            return json.load(f)
-    return {}
-
-# บันทึกยอดเงินลงใน balance.json
-def save_balance(balance_data):
-    with open(BALANCE_FILE, "w") as f:
-        json.dump(balance_data, f, indent=4)
+try:
+    with open(BALANCE_FILE, 'r') as file:
+        balance_data = json.load(file)
+except FileNotFoundError:
+    print("ไม่พบไฟล์ balance.json ❌")
+    balance_data = {}
 
 # รับ username และ password จากผู้ใช้
 username = input("กรุณากรอก Username: ")
@@ -43,6 +39,9 @@ if username not in users_data or users_data[username]['password'] != password:
 current_user = users_data[username]
 api_key = current_user['api_key']
 products = current_user['products']
+
+# ดึงยอดเงินของผู้ใช้จาก balance.json
+user_balance = balance_data.get(username, {}).get("balance", 0.00)
 
 print(f"ยินดีต้อนรับ {username}! ✅")
 
@@ -76,19 +75,12 @@ def place_order(category, product_key, quantity, link):
 
     total_price = round(product['price_per_unit'] * quantity, 2)
 
-    # โหลดยอดเงินจาก balance.json
-    balance_data = load_balance()
-    user_balance = balance_data.get(username, 0)  # ค่าดีฟอลต์เป็น 0 หากไม่พบข้อมูล
+    balance = get_balance(api_key)
+    if balance is None:
+        print("ไม่สามารถดึงยอดเงินได้ ❌")
+        return
 
-    # ดึงยอดเงินจาก API หากยอดเงินใน balance.json ไม่มี
-    if user_balance == 0:
-        balance = get_balance(api_key)
-        if balance is None:
-            print("ไม่สามารถดึงยอดเงินได้ ❌")
-            return
-        user_balance = balance
-
-    if total_price > user_balance:
+    if total_price > balance:
         print(f"ยอดเงินไม่เพียงพอในการซื้อสินค้า {product['description']} ❌")
         return
 
@@ -99,7 +91,7 @@ def place_order(category, product_key, quantity, link):
     print(f"ราคาต่อหน่วย: {product['price_per_unit']:.2f} บาท")
     print(f"ราคาทั้งหมด: {total_price:.2f} บาท")
     print(f"ลิงก์ที่กรอก: {link}")
-    print(f"ยอดเงินที่คุณมี: {user_balance:.2f} บาท 💳")
+    print(f"ยอดเงินที่คุณมี: {balance:.2f} บาท 💳")
 
     # การยืนยันการสั่งซื้อ
     confirm = input("คุณต้องการยืนยันการสั่งซื้อหรือไม่? (y/n): ").lower()
@@ -121,15 +113,8 @@ def place_order(category, product_key, quantity, link):
         if response_order.status_code == 200:
             order_data = response_order.json()
             if 'order' in order_data:
-                remaining_balance = round(user_balance - total_price, 2)
-
-                # อัพเดตยอดเงินหลังการสั่งซื้อ
-                balance_data[username] = remaining_balance
-                save_balance(balance_data)
-
                 print(f"การสั่งซื้อสำเร็จ! คำสั่งซื้อ ID: {order_data['order']} ✅")
                 print(f"รวมราคาทั้งหมด: {total_price:.2f} บาท 💵")
-                print(f"ยอดเงินที่เหลือหลังจากการสั่งซื้อ: {remaining_balance:.2f} บาท 💳")
             else:
                 print("การสั่งซื้อไม่สำเร็จ ❌")
         else:
@@ -137,45 +122,9 @@ def place_order(category, product_key, quantity, link):
     except requests.RequestException as e:
         print(f"เกิดข้อผิดพลาดในการเชื่อมต่อ: {e} ❌")
 
-# ฟังก์ชันเลือกสินค้า
-def choose_product(category):
-    if category not in products:
-        print("ไม่มีสินค้าในหมวดหมู่นี้ ❌")
-        return
-
-    category_products = products[category]
-    print("\n--- รายการสินค้า ---")
-    for index, (product_name, details) in enumerate(category_products.items(), start=1):
-        print(f"{index}. {details['description']} - ราคาต่อหน่วย: {details['price_per_unit']:.2f} บาท")
-        print(f"   จำนวนขั้นต่ำ: {details['min_quantity']} - จำนวนสูงสุด: {details['max_quantity']}")
-
-    print("0. ย้อนกลับ 🔙")
-
-    choice = int(input("กรุณาเลือกสินค้าที่ต้องการ: "))
-    if choice == 0:
-        return
-
-    if 1 <= choice <= len(category_products):
-        product_key = list(category_products.keys())[choice - 1]
-        product = category_products[product_key]
-        print(f"คุณเลือก {product['description']}")
-
-        min_quantity = product['min_quantity']
-        max_quantity = product['max_quantity']
-        price_per_unit = product['price_per_unit']
-        print(f"จำนวนขั้นต่ำ: {min_quantity}, จำนวนสูงสุด: {max_quantity}")
-        print(f"ราคาต่อหน่วย: {price_per_unit:.2f} บาท")
-
-        link = input("กรุณากรอกลิงก์ที่ต้องการ: ")
-        quantity = int(input(f"กรุณากรอกจำนวนที่ต้องการซื้อ (ระหว่าง {min_quantity} และ {max_quantity}): "))
-        place_order(category, product_key, quantity, link)
-
 # เมนูหลัก
 def show_category_menu():
-    balance_data = load_balance()
-    user_balance = balance_data.get(username, 0)  # ค่าดีฟอลต์เป็น 0 หากไม่พบข้อมูล
     print(f"\n--- เมนูหลัก --- ยอดเงิน: {user_balance:.2f} บาท 💳")
-    
     print("1. Facebook")
     print("2. TikTok")
     print("3. Instagram")
