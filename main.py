@@ -64,6 +64,7 @@ def place_order(category, product_key, quantity, link):
         return
 
     total_price = product['price_per_unit'] * quantity
+    remaining_balance = adjusted_balance - total_price
 
     balance = get_balance(api_key)
     if balance is None:
