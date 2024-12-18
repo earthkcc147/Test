@@ -51,7 +51,7 @@ def get_balance(api_key):
     return None
 
 # ฟังก์ชันการสั่งซื้อสินค้า
-def place_order(category, product_key, quantity):
+def place_order(category, product_key, quantity, link):
     product = products[category][product_key]
     min_quantity = product['min_quantity']
     max_quantity = product['max_quantity']
@@ -85,19 +85,21 @@ def place_order(category, product_key, quantity):
         print("ยกเลิกการสั่งซื้อ ❌")
         return
 
+    # ข้อมูลการสั่งซื้อที่ต้องการส่งไปยัง API
     data_order = {
         "key": api_key,
-        "action": product['action'],
-        "service": product['service'],
-        "quantity": quantity
+        "action": "add",  # ชื่อ action สำหรับการเพิ่มคำสั่งซื้อ
+        "service": product['service'],  # รหัสบริการที่เกี่ยวข้อง
+        "link": link,  # link ที่ผู้ใช้กรอก
+        "quantity": quantity  # จำนวนที่สั่งซื้อ
     }
 
     try:
         response_order = requests.post(API_URL, data=data_order)
         if response_order.status_code == 200:
             order_data = response_order.json()
-            if 'status' in order_data and order_data['status'] == 'success':
-                print(f"สั่งซื้อ {product['description']} จำนวน {quantity} ชิ้นสำเร็จ ✅")
+            if 'order' in order_data:
+                print(f"การสั่งซื้อสำเร็จ! คำสั่งซื้อ ID: {order_data['order']} ✅")
                 print(f"รวมราคาทั้งหมด: {total_price} บาท 💵")
             else:
                 print("การสั่งซื้อไม่สำเร็จ ❌")
@@ -137,9 +139,12 @@ def choose_product(category):
         print(f"จำนวนขั้นต่ำ: {min_quantity}, จำนวนสูงสุด: {max_quantity}")
         print(f"ราคาต่อหน่วย: {price_per_unit} บาท")
 
+        # รับค่า link จากผู้ใช้
+        link = input("กรุณากรอกลิงก์ที่ต้องการ: ")
+
         # สั่งซื้อ
         quantity = int(input(f"กรุณากรอกจำนวนที่ต้องการซื้อ (ระหว่าง {min_quantity} และ {max_quantity}): "))
-        place_order(category, product_key, quantity)
+        place_order(category, product_key, quantity, link)
 
 # เมนูหลัก
 def show_category_menu():
@@ -173,3 +178,7 @@ while True:
         choose_product("discord")
     else:
         print("ตัวเลือกไม่ถูกต้อง ❌")
+
+
+
+แสดงราคาด้วย
