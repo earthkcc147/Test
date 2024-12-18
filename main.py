@@ -50,6 +50,40 @@ def get_balance(api_key):
         print(f"เกิดข้อผิดพลาดในการเชื่อมต่อ: {e} ❌")
     return None
 
+# ฟังก์ชันการสั่งซื้อสินค้า
+def place_order(category, product_key, quantity):
+    product = products[category][product_key]
+    total_price = product['price_per_unit'] * quantity
+
+    balance = get_balance(api_key)
+    if balance is None:
+        print("ไม่สามารถดึงยอดเงินได้ ❌")
+        return
+
+    if total_price > balance:
+        print(f"ยอดเงินไม่เพียงพอในการซื้อสินค้า {product['description']} ❌")
+        return
+
+    data_order = {
+        "key": api_key,
+        "action": product['action'],
+        "service": product['service'],
+        "quantity": quantity
+    }
+
+    try:
+        response_order = requests.post(API_URL, data=data_order)
+        if response_order.status_code == 200:
+            order_data = response_order.json()
+            if 'status' in order_data and order_data['status'] == 'success':
+                print(f"สั่งซื้อ {product['description']} จำนวน {quantity} ชิ้นสำเร็จ ✅")
+            else:
+                print("การสั่งซื้อไม่สำเร็จ ❌")
+        else:
+            print("เกิดข้อผิดพลาดในการสั่งซื้อ ❌")
+    except requests.RequestException as e:
+        print(f"เกิดข้อผิดพลาดในการเชื่อมต่อ: {e} ❌")
+
 # เมนูหลัก
 def show_category_menu():
     balance = get_balance(api_key)
@@ -84,6 +118,10 @@ def choose_product(category):
         product_key = list(category_products.keys())[choice - 1]
         product = category_products[product_key]
         print(f"คุณเลือก {product['description']}")
+
+        # สั่งซื้อ
+        quantity = int(input("กรุณากรอกจำนวนที่ต้องการซื้อ: "))
+        place_order(category, product_key, quantity)
 
 # ลูปหลัก
 while True:
