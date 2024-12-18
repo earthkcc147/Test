@@ -159,7 +159,10 @@ def choose_product(category):
 def show_category_menu():
     balance = get_balance(api_key)
     if balance is not None:
-        print(f"\n--- เมนูหลัก --- ยอดเงิน: {balance} บาท 💳")
+        # print(f"\n--- เมนูหลัก --- ยอดเงิน: {balance} บาท 💳")
+        # คูณยอดเงินด้วยตัวคูณ
+        adjusted_balance = round(balance * BALANCE_MULTIPLIER, 100)
+        print(f"\n--- เมนูหลัก --- ยอดเงิน: {adjusted_balance} บาท 💳")
     else:
         print("\n--- เมนูหลัก --- ไม่สามารถดึงยอดเงินได้ ❗")
     
