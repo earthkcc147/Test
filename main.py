@@ -53,6 +53,14 @@ def get_balance(api_key):
 # ฟังก์ชันการสั่งซื้อสินค้า
 def place_order(category, product_key, quantity):
     product = products[category][product_key]
+    min_quantity = product['min_quantity']
+    max_quantity = product['max_quantity']
+    
+    # ตรวจสอบว่าจำนวนสินค้าที่เลือกอยู่ในช่วงที่อนุญาต
+    if quantity < min_quantity or quantity > max_quantity:
+        print(f"จำนวนสินค้าต้องอยู่ระหว่าง {min_quantity} ถึง {max_quantity} ชิ้น ❌")
+        return
+
     total_price = product['price_per_unit'] * quantity
 
     balance = get_balance(api_key)
@@ -62,6 +70,19 @@ def place_order(category, product_key, quantity):
 
     if total_price > balance:
         print(f"ยอดเงินไม่เพียงพอในการซื้อสินค้า {product['description']} ❌")
+        return
+
+    # แสดงรายละเอียดการสั่งซื้อให้ผู้ใช้ยืนยัน
+    print(f"\n--- รายละเอียดการสั่งซื้อ ---")
+    print(f"สินค้า: {product['description']}")
+    print(f"จำนวนที่เลือก: {quantity} ชิ้น")
+    print(f"ราคาต่อหน่วย: {product['price_per_unit']} บาท")
+    print(f"ราคาทั้งหมด: {total_price} บาท")
+    
+    # การยืนยันการสั่งซื้อ
+    confirm = input("คุณต้องการยืนยันการสั่งซื้อหรือไม่? (y/n): ").lower()
+    if confirm != 'y':
+        print("ยกเลิกการสั่งซื้อ ❌")
         return
 
     data_order = {
@@ -77,12 +98,48 @@ def place_order(category, product_key, quantity):
             order_data = response_order.json()
             if 'status' in order_data and order_data['status'] == 'success':
                 print(f"สั่งซื้อ {product['description']} จำนวน {quantity} ชิ้นสำเร็จ ✅")
+                print(f"รวมราคาทั้งหมด: {total_price} บาท 💵")
             else:
                 print("การสั่งซื้อไม่สำเร็จ ❌")
         else:
             print("เกิดข้อผิดพลาดในการสั่งซื้อ ❌")
     except requests.RequestException as e:
         print(f"เกิดข้อผิดพลาดในการเชื่อมต่อ: {e} ❌")
+
+# ฟังก์ชันเลือกสินค้า
+def choose_product(category):
+    if category not in products:
+        print("ไม่มีสินค้าในหมวดหมู่นี้ ❌")
+        return
+
+    category_products = products[category]
+    print("\n--- รายการสินค้า ---")
+    for index, (product_name, details) in enumerate(category_products.items(), start=1):
+        print(f"{index}. {details['description']} - ราคาต่อหน่วย: {details['price_per_unit']} บาท")
+        # แสดง min_quantity และ max_quantity สำหรับแต่ละสินค้า
+        print(f"   จำนวนขั้นต่ำ: {details['min_quantity']} - จำนวนสูงสุด: {details['max_quantity']}")
+
+    print("0. ย้อนกลับ 🔙")
+
+    choice = int(input("กรุณาเลือกสินค้าที่ต้องการ: "))
+    if choice == 0:
+        return
+
+    if 1 <= choice <= len(category_products):
+        product_key = list(category_products.keys())[choice - 1]
+        product = category_products[product_key]
+        print(f"คุณเลือก {product['description']}")
+
+        # แสดง min_quantity, max_quantity และราคาต่อหน่วยก่อนให้ผู้ใช้กรอกจำนวน
+        min_quantity = product['min_quantity']
+        max_quantity = product['max_quantity']
+        price_per_unit = product['price_per_unit']
+        print(f"จำนวนขั้นต่ำ: {min_quantity}, จำนวนสูงสุด: {max_quantity}")
+        print(f"ราคาต่อหน่วย: {price_per_unit} บาท")
+
+        # สั่งซื้อ
+        quantity = int(input(f"กรุณากรอกจำนวนที่ต้องการซื้อ (ระหว่าง {min_quantity} และ {max_quantity}): "))
+        place_order(category, product_key, quantity)
 
 # เมนูหลัก
 def show_category_menu():
@@ -97,31 +154,6 @@ def show_category_menu():
     print("3. Instagram")
     print("4. Discord")
     print("0. ออกจากโปรแกรม 🚪")
-
-# เลือกสินค้า
-def choose_product(category):
-    if category not in products:
-        print("ไม่มีสินค้าในหมวดหมู่นี้ ❌")
-        return
-
-    category_products = products[category]
-    print("\n--- รายการสินค้า ---")
-    for index, (product_name, details) in enumerate(category_products.items(), start=1):
-        print(f"{index}. {details['description']} - ราคาต่อหน่วย: {details['price_per_unit']} บาท")
-    print("0. ย้อนกลับ 🔙")
-
-    choice = int(input("กรุณาเลือกสินค้าที่ต้องการ: "))
-    if choice == 0:
-        return
-
-    if 1 <= choice <= len(category_products):
-        product_key = list(category_products.keys())[choice - 1]
-        product = category_products[product_key]
-        print(f"คุณเลือก {product['description']}")
-
-        # สั่งซื้อ
-        quantity = int(input("กรุณากรอกจำนวนที่ต้องการซื้อ: "))
-        place_order(category, product_key, quantity)
 
 # ลูปหลัก
 while True:
