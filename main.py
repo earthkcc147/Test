@@ -6,11 +6,10 @@ from dotenv import load_dotenv
 # โหลดค่าจากไฟล์ .env
 load_dotenv()
 
-BALANCE_MULTIPLIER = float(os.getenv("BALANCE_MULTIPLIER", 100))
-
 # อ่านค่าจาก .env
 API_URL = os.getenv("API_URL")
 USERS_JSON = os.getenv("USERS")
+BALANCE_FILE = "balance.json"  # ไฟล์ที่เก็บยอดเงิน
 
 # แปลงข้อมูล USERS_JSON เป็น dictionary
 try:
@@ -18,6 +17,18 @@ try:
 except json.JSONDecodeError:
     print("ไม่สามารถแปลงข้อมูล USERS จาก .env ได้ ❌")
     exit()
+
+# อ่านข้อมูลยอดเงินจาก balance.json
+def load_balance():
+    if os.path.exists(BALANCE_FILE):
+        with open(BALANCE_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+# บันทึกยอดเงินลงใน balance.json
+def save_balance(balance_data):
+    with open(BALANCE_FILE, "w") as f:
+        json.dump(balance_data, f, indent=4)
 
 # รับ username และ password จากผู้ใช้
 username = input("กรุณากรอก Username: ")
@@ -61,21 +72,25 @@ def place_order(category, product_key, quantity, link):
     # ตรวจสอบว่าจำนวนสินค้าที่เลือกอยู่ในช่วงที่อนุญาต
     if quantity < min_quantity or quantity > max_quantity:
         print(f"จำนวนสินค้าต้องอยู่ระหว่าง {min_quantity} ถึง {max_quantity} ชิ้น ❌")
-        return None  # ยกเลิกการสั่งซื้อ
+        return
 
     total_price = round(product['price_per_unit'] * quantity, 2)
 
-    balance = get_balance(api_key)
-    if balance is None:
-        print("ไม่สามารถดึงยอดเงินได้ ❌")
-        return None  # ยกเลิกการสั่งซื้อ
+    # โหลดยอดเงินจาก balance.json
+    balance_data = load_balance()
+    user_balance = balance_data.get(username, 0)  # ค่าดีฟอลต์เป็น 0 หากไม่พบข้อมูล
 
-    # คูณยอดเงินด้วยตัวคูณ
-    adjusted_balance = round(balance * BALANCE_MULTIPLIER, 2)
+    # ดึงยอดเงินจาก API หากยอดเงินใน balance.json ไม่มี
+    if user_balance == 0:
+        balance = get_balance(api_key)
+        if balance is None:
+            print("ไม่สามารถดึงยอดเงินได้ ❌")
+            return
+        user_balance = balance
 
-    if total_price > adjusted_balance:
+    if total_price > user_balance:
         print(f"ยอดเงินไม่เพียงพอในการซื้อสินค้า {product['description']} ❌")
-        return None  # ยกเลิกการสั่งซื้อ
+        return
 
     # แสดงรายละเอียดการสั่งซื้อให้ผู้ใช้ยืนยัน
     print(f"\n--- รายละเอียดการสั่งซื้อ ---")
@@ -84,13 +99,13 @@ def place_order(category, product_key, quantity, link):
     print(f"ราคาต่อหน่วย: {product['price_per_unit']:.2f} บาท")
     print(f"ราคาทั้งหมด: {total_price:.2f} บาท")
     print(f"ลิงก์ที่กรอก: {link}")
-    print(f"ยอดเงินที่คุณมีหลังจากคูณ: {adjusted_balance:.2f} บาท 💳")
+    print(f"ยอดเงินที่คุณมี: {user_balance:.2f} บาท 💳")
 
     # การยืนยันการสั่งซื้อ
     confirm = input("คุณต้องการยืนยันการสั่งซื้อหรือไม่? (y/n): ").lower()
     if confirm != 'y':
         print("ยกเลิกการสั่งซื้อ ❌")
-        return None  # ยกเลิกการสั่งซื้อ
+        return
 
     # ข้อมูลการสั่งซื้อที่ต้องการส่งไปยัง API
     data_order = {
@@ -106,25 +121,27 @@ def place_order(category, product_key, quantity, link):
         if response_order.status_code == 200:
             order_data = response_order.json()
             if 'order' in order_data:
-                remaining_balance = round(adjusted_balance - total_price, 2)
+                remaining_balance = round(user_balance - total_price, 2)
+
+                # อัพเดตยอดเงินหลังการสั่งซื้อ
+                balance_data[username] = remaining_balance
+                save_balance(balance_data)
+
                 print(f"การสั่งซื้อสำเร็จ! คำสั่งซื้อ ID: {order_data['order']} ✅")
                 print(f"รวมราคาทั้งหมด: {total_price:.2f} บาท 💵")
                 print(f"ยอดเงินที่เหลือหลังจากการสั่งซื้อ: {remaining_balance:.2f} บาท 💳")
-                return remaining_balance  # ส่งยอดเงินที่เหลือกลับไป
             else:
                 print("การสั่งซื้อไม่สำเร็จ ❌")
         else:
             print("เกิดข้อผิดพลาดในการสั่งซื้อ ❌")
     except requests.RequestException as e:
         print(f"เกิดข้อผิดพลาดในการเชื่อมต่อ: {e} ❌")
-    
-    return None  # ในกรณีที่เกิดข้อผิดพลาด
 
 # ฟังก์ชันเลือกสินค้า
 def choose_product(category):
     if category not in products:
         print("ไม่มีสินค้าในหมวดหมู่นี้ ❌")
-        return None
+        return
 
     category_products = products[category]
     print("\n--- รายการสินค้า ---")
@@ -136,7 +153,7 @@ def choose_product(category):
 
     choice = int(input("กรุณาเลือกสินค้าที่ต้องการ: "))
     if choice == 0:
-        return None
+        return
 
     if 1 <= choice <= len(category_products):
         product_key = list(category_products.keys())[choice - 1]
@@ -151,19 +168,13 @@ def choose_product(category):
 
         link = input("กรุณากรอกลิงก์ที่ต้องการ: ")
         quantity = int(input(f"กรุณากรอกจำนวนที่ต้องการซื้อ (ระหว่าง {min_quantity} และ {max_quantity}): "))
-        
-        return place_order(category, product_key, quantity, link)  # ส่งผลลัพธ์ยอดเงินที่เหลือกลับไป
-
-    return None
+        place_order(category, product_key, quantity, link)
 
 # เมนูหลัก
 def show_category_menu():
-    balance = get_balance(api_key)
-    if balance is not None:
-        adjusted_balance = round(balance * BALANCE_MULTIPLIER, 2)
-        print(f"\n--- เมนูหลัก --- ยอดเงิน: {adjusted_balance:.2f} บาท 💳")
-    else:
-        print("\n--- เมนูหลัก --- ไม่สามารถดึงยอดเงินได้ ❗")
+    balance_data = load_balance()
+    user_balance = balance_data.get(username, 0)  # ค่าดีฟอลต์เป็น 0 หากไม่พบข้อมูล
+    print(f"\n--- เมนูหลัก --- ยอดเงิน: {user_balance:.2f} บาท 💳")
     
     print("1. Facebook")
     print("2. TikTok")
@@ -180,16 +191,12 @@ while True:
         print("ออกจากโปรแกรม 👋")
         break
     elif category_choice == 1:
-        remaining_balance = choose_product("facebook")
+        choose_product("facebook")
     elif category_choice == 2:
-        remaining_balance = choose_product("tiktok")
+        choose_product("tiktok")
     elif category_choice == 3:
-        remaining_balance = choose_product("instagram")
+        choose_product("instagram")
     elif category_choice == 4:
-        remaining_balance = choose_product("discord")
+        choose_product("discord")
     else:
         print("ตัวเลือกไม่ถูกต้อง ❌")
-
-    # อัปเดตยอดเงินในเมนูหลัก
-    if remaining_balance is not None:
-        print(f"ยอดเงินที่เหลือ: {remaining_balance:.2f} บาท 💳")
