@@ -63,7 +63,7 @@ def place_order(category, product_key, quantity, link):
         print(f"จำนวนสินค้าต้องอยู่ระหว่าง {min_quantity} ถึง {max_quantity} ชิ้น ❌")
         return
 
-    total_price = product['price_per_unit'] * quantity
+    total_price = round(product['price_per_unit'] * quantity, 2)
 
     balance = get_balance(api_key)
     if balance is None:
@@ -81,8 +81,8 @@ def place_order(category, product_key, quantity, link):
     print(f"\n--- รายละเอียดการสั่งซื้อ ---")
     print(f"สินค้า: {product['description']}")
     print(f"จำนวนที่เลือก: {quantity} ชิ้น")
-    print(f"ราคาต่อหน่วย: {product['price_per_unit']} บาท")
-    print(f"ราคาทั้งหมด: {total_price} บาท")
+    print(f"ราคาต่อหน่วย: {product['price_per_unit']:.2f} บาท")
+    print(f"ราคาทั้งหมด: {total_price:.2f} บาท")
     print(f"ลิงก์ที่กรอก: {link}")  # แสดงลิงก์ที่ผู้ใช้กรอก
     print(f"ยอดเงินที่คุณมีหลังจากคูณ: {adjusted_balance:.2f} บาท 💳")  # แสดงยอดเงินที่คูณ
 
@@ -147,7 +147,7 @@ def choose_product(category):
         max_quantity = product['max_quantity']
         price_per_unit = product['price_per_unit']
         print(f"จำนวนขั้นต่ำ: {min_quantity}, จำนวนสูงสุด: {max_quantity}")
-        print(f"ราคาต่อหน่วย: {price_per_unit} บาท")
+        print(f"ราคาต่อหน่วย: {price_per_unit:.2f} บาท")  # แสดงราคาต่อหน่วยด้วยทศนิยม 2 หลัก
 
         # รับค่า link จากผู้ใช้
         link = input("กรุณากรอกลิงก์ที่ต้องการ: ")
