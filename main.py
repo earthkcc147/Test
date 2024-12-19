@@ -95,7 +95,7 @@ def place_order(category, product_key, quantity, link):
     # ข้อมูลการสั่งซื้อที่ต้องการส่งไปยัง API
     data_order = {
         "key": api_key,
-        "action": "add",
+        "action": product['action'],
         "service": product['service'],
         "link": link,
         "quantity": quantity
