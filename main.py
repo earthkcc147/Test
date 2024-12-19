@@ -128,6 +128,8 @@ def choose_product(category):
     for index, (product_name, details) in enumerate(category_products.items(), start=1):
         print(f"{index}. {details['description']} - ราคาต่อหน่วย: {details['price_per_unit']:.2f} บาท")
         print(f"   จำนวนขั้นต่ำ: {details['min_quantity']} - จำนวนสูงสุด: {details['max_quantity']}")
+        if 'example_link' in details:
+            print(f"   ตัวอย่างลิงก์: {details['example_link']}")
 
     print("0. ย้อนกลับ 🔙")
 
@@ -146,7 +148,7 @@ def choose_product(category):
         print(f"จำนวนขั้นต่ำ: {min_quantity}, จำนวนสูงสุด: {max_quantity}")
         print(f"ราคาต่อหน่วย: {price_per_unit:.2f} บาท")
 
-        link = input("กรุณากรอกลิงก์ที่ต้องการ: ")
+        link = input(f"กรุณากรอกลิงก์ที่ต้องการ (ตัวอย่าง: {product['example_link'] if 'example_link' in product else 'ไม่มีตัวอย่าง'}): ")
         quantity = int(input(f"กรุณากรอกจำนวนที่ต้องการซื้อ (ระหว่าง {min_quantity} และ {max_quantity}): "))
         place_order(category, product_key, quantity, link)
 
