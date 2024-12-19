@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 # โหลดค่าจากไฟล์ .env
 load_dotenv()
 
-BALANCE_MULTIPLIER = float(os.getenv("BALANCE_MULTIPLIER", 100))
+BM = float(os.getenv("BM", 100))  # เปลี่ยนชื่อจาก BALANCE_MULTIPLIER เป็น BM
 
 # อ่านค่าจาก .env
 API_URL = os.getenv("API_URL")
@@ -71,7 +71,7 @@ def place_order(category, product_key, quantity, link):
         return
 
     # คูณยอดเงินด้วยตัวคูณ
-    adjusted_balance = round(balance * BALANCE_MULTIPLIER, 2)
+    adjusted_balance = round(balance * BM, 2)
 
     if total_price > adjusted_balance:
         print(f"ยอดเงินไม่เพียงพอในการซื้อสินค้า {product['description']} ❌")
@@ -154,7 +154,7 @@ def choose_product(category):
 def show_category_menu():
     balance = get_balance(api_key)
     if balance is not None:
-        adjusted_balance = round(balance * BALANCE_MULTIPLIER, 2)
+        adjusted_balance = round(balance * BM, 2)
         print(f"\n--- เมนูหลัก --- ยอดเงิน: {adjusted_balance:.2f} บาท 💳")
     else:
         print("\n--- เมนูหลัก --- ไม่สามารถดึงยอดเงินได้ ❗")
