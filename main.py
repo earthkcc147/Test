@@ -1,16 +1,16 @@
 import os
 import json
 import requests
-from dotenv import load_dotenv, set_key
+from dotenv import load_dotenv
 
 # โหลดค่าจากไฟล์ .env
 load_dotenv()
 
+BALANCE_MULTIPLIER = float(os.getenv("BALANCE_MULTIPLIER", 100))
+
 # อ่านค่าจาก .env
 API_URL = os.getenv("API_URL")
 USERS_JSON = os.getenv("USERS")
-API_KEY = os.getenv("API_KEY")  # คีย์ API สำหรับเชื่อมต่อกับ API ใหม่
-API_CHECK_SERVICE_URL = API_URL
 
 # แปลงข้อมูล USERS_JSON เป็น dictionary
 try:
@@ -32,32 +32,28 @@ if username not in users_data or users_data[username]['password'] != password:
 current_user = users_data[username]
 api_key = current_user['api_key']
 products = current_user['products']
-BL = float(current_user['BL'])  # ใช้ยอดเงินจากไฟล์ .env โดยตรง (เปลี่ยนจาก balance เป็น BL)
 
 print(f"ยินดีต้อนรับ {username}! ✅")
 
 # ฟังก์ชันดึงยอดเงินจาก API
 def get_balance(api_k):
-    # เนื่องจากเราไม่ต้องการดึงยอดเงินจาก API อีกต่อไป
-    return BL  # คืนยอดเงินที่เก็บไว้ในไฟล์ .env
+    data_balance = {
+        "key": api_key,
+        "action": "balance"
+    }
 
-# ฟังก์ชันดึงข้อมูลอัตราค่าบริการจาก API
-def get_service_rate():
     try:
-        response = requests.post(API_CHECK_SERVICE_URL, data={'key': API_KEY, 'action': 'services'})
-        if response.status_code == 200:
-            services_data = response.json()
-            return {service['service']: float(service['rate']) for service in services_data}
-        else:
-            print("ไม่สามารถเชื่อมต่อกับ API เพื่อตรวจสอบอัตราค่าบริการ ❌")
-            return {}
+        response_balance = requests.post(API_URL, data=data_balance)
+        if response_balance.status_code == 200:
+            balance_data = response_balance.json()
+            if 'balance' in balance_data:
+                return round(float(balance_data['balance']), 2)
     except requests.RequestException as e:
         print(f"เกิดข้อผิดพลาดในการเชื่อมต่อ: {e} ❌")
-        return {}
+    return None
 
 # ฟังก์ชันการสั่งซื้อสินค้า
 def place_order(category, product_key, quantity, link):
-    global BL  # อ้างอิงถึงตัวแปร BL ที่อยู่ภายนอกฟังก์ชัน
     product = products[category][product_key]
     min_quantity = product['min_quantity']
     max_quantity = product['max_quantity']
@@ -69,22 +65,15 @@ def place_order(category, product_key, quantity, link):
 
     total_price = round(product['price_per_unit'] * quantity, 2)
 
-    # ดึงข้อมูลอัตราค่าบริการจาก API
-    service_rates = get_service_rate()
-    if not service_rates:
-        print("ไม่สามารถดึงข้อมูลอัตราค่าบริการจาก API ได้ ❌")
+    balance = get_balance(api_key)
+    if balance is None:
+        print("ไม่สามารถดึงยอดเงินได้ ❌")
         return
 
-    # ตรวจสอบว่าอัตราค่าบริการที่ได้จาก API สามารถนำไปคำนวณราคาจริงได้หรือไม่
-    if product['service'] not in service_rates:
-        print(f"บริการที่เลือกไม่มีอัตราค่าบริการ ❌")
-        return
+    # คูณยอดเงินด้วยตัวคูณ
+    adjusted_balance = round(balance * BALANCE_MULTIPLIER, 2)
 
-    service_rate = service_rates[product['service']]
-    adjusted_price = round(total_price * service_rate, 2)
-
-    # ตรวจสอบว่าราคาที่ปรับแล้วเพียงพอกับยอดเงินใน BL หรือไม่
-    if adjusted_price > BL:
+    if total_price > adjusted_balance:
         print(f"ยอดเงินไม่เพียงพอในการซื้อสินค้า {product['description']} ❌")
         return
 
@@ -94,9 +83,8 @@ def place_order(category, product_key, quantity, link):
     print(f"จำนวนที่เลือก: {quantity} ชิ้น")
     print(f"ราคาต่อหน่วย: {product['price_per_unit']:.2f} บาท")
     print(f"ราคาทั้งหมด: {total_price:.2f} บาท")
-    print(f"ราคาหลังจากอัตราค่าบริการ: {adjusted_price:.2f} บาท")
     print(f"ลิงก์ที่กรอก: {link}")
-    print(f"ยอดเงินที่คุณมี: {BL:.2f} บาท 💳")
+    print(f"ยอดเงินที่คุณมีหลังจากคูณ: {adjusted_balance:.2f} บาท 💳")
 
     # การยืนยันการสั่งซื้อ
     confirm = input("คุณต้องการยืนยันการสั่งซื้อหรือไม่? (y/n): ").lower()
@@ -118,19 +106,10 @@ def place_order(category, product_key, quantity, link):
         if response_order.status_code == 200:
             order_data = response_order.json()
             if 'order' in order_data:
-                remaining_BL = round(BL - adjusted_price, 2)
+                remaining_balance = round(adjusted_balance - total_price, 2)
                 print(f"การสั่งซื้อสำเร็จ! คำสั่งซื้อ ID: {order_data['order']} ✅")
-                print(f"รวมราคาทั้งหมด: {adjusted_price:.2f} บาท 💵")
-                print(f"ยอดเงินที่เหลือหลังจากการสั่งซื้อ: {remaining_BL:.2f} บาท 💳")
-
-                # อัพเดต BL ในไฟล์ .env
-                BL = remaining_BL
-                set_key(".env", "USERS", json.dumps(users_data, ensure_ascii=False))  # อัพเดตข้อมูล USERS
-
-                # อัพเดต BL ของผู้ใช้ในไฟล์ .env
-                users_data[username]['BL'] = str(BL)
-                set_key(".env", "USERS", json.dumps(users_data, ensure_ascii=False))
-
+                print(f"รวมราคาทั้งหมด: {total_price:.2f} บาท 💵")
+                print(f"ยอดเงินที่เหลือหลังจากการสั่งซื้อ: {remaining_balance:.2f} บาท 💳")
             else:
                 print("การสั่งซื้อไม่สำเร็จ ❌")
         else:
@@ -173,7 +152,13 @@ def choose_product(category):
 
 # เมนูหลัก
 def show_category_menu():
-    print(f"\n--- เมนูหลัก --- ยอดเงิน: {BL:.2f} บาท 💳")
+    balance = get_balance(api_key)
+    if balance is not None:
+        adjusted_balance = round(balance * BALANCE_MULTIPLIER, 2)
+        print(f"\n--- เมนูหลัก --- ยอดเงิน: {adjusted_balance:.2f} บาท 💳")
+    else:
+        print("\n--- เมนูหลัก --- ไม่สามารถดึงยอดเงินได้ ❗")
+    
     print("1. Facebook")
     print("2. TikTok")
     print("3. Instagram")
